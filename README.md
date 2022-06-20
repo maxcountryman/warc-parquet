@@ -20,4 +20,5 @@ warc-parquet
 Install with Cargo:
 
 ```sh
+$ cargo install warc-parquet
 ```

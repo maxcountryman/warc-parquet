@@ -5,6 +5,7 @@ edition = "2021"
 description = "A simple tool for converting WARC files to Parquet files."
 license = "MIT"
 keywords = ["warc", "parquet"]
+repository = "https://github.com/maxcountryman/warc-parquet"
 
 [dependencies]
 arrow = "16.0.0"
