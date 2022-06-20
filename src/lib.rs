@@ -2,9 +2,9 @@
 //!
 //! Using [`RecordColumns`] to create the necessary columns from a provided
 //! [`Record`](warc::Record) along with
-//! [`schema()`] is enough to prepare a complete Arrow translation from WARC. Leveraging
-//! [`ArrowWriter`](parquet::arrow::ArrowWriter), this representation can then be persisted to disk
-//! as Parquet.
+//! [`schema()`] is enough to prepare a complete Arrow translation from WARC.
+//! Leveraging [`ArrowWriter`](parquet::arrow::ArrowWriter), this representation
+//! can then be persisted to disk as Parquet.
 //!
 //! This implementation assumes the WARC 1.0 format.
 
