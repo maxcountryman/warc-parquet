@@ -28,7 +28,8 @@ $ cargo install warc-parquet
 Once installed, WARC files can be passed to the program with a target output path which Parquet will be written to:
 
 ```sh
-$ warc-parquet example.warc example.snappy.parquet
+$ wget --warc-file example 'https://example.com'
+$ warc-parquet --gzipped example.warc.gz example.snappy.parquet
 ```
 
 > ⚠️ Note that the Parquet path **WILL** be overwritten.
