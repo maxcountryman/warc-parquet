@@ -3,7 +3,7 @@ warc-parquet
 </h1>
 
 <p align="center">
-🥠 A simple tool for converting WARC files to Parquet files.
+🗄️ A simple tool for converting WARC files to Parquet files.
 </p>
 
 <div align="center">
@@ -20,5 +20,4 @@ warc-parquet
 Install with Cargo:
 
 ```sh
-cargo install warc-parquet
 ```
