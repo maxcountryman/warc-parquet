@@ -17,8 +17,18 @@ warc-parquet
 
 ## 📦 Install
 
-Install with Cargo:
+The binary may be installed via `cargo`:
 
 ```sh
 $ cargo install warc-parquet
 ```
+
+## 🤸 Usage
+
+Once installed, WARC files can be passed to the program with a target output path which Parquet will be written to:
+
+```sh
+$ warc-parquet example.warc example.snappy.parquet
+```
+
+> ⚠️ Note that the Parquet path **WILL** be overwritten.
