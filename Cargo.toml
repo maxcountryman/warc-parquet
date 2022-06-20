@@ -1,0 +1,11 @@
+[package]
+name = "warc-parquet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrow = "16.0.0"
+chrono = "0.4.19"
+parquet = "16.0.0"
+structopt = "0.3.26"
+warc = "0.3.1"
