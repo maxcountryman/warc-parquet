@@ -54,4 +54,29 @@ D select type, id from 'example.snappy.parquet';
 │ resource │ <urn:uuid:14F502A5-3BDE-4D0B-8A43-95F4BB8398C6> │
 │ resource │ <urn:uuid:6B6D6ADD-52FF-4760-AA00-FB9E739CABBE> │
 └──────────┴─────────────────────────────────────────────────┘
+D describe select * from 'example.snappy.parquet';
+┌─────────────────────────┬─────────────┬──────┬─────┬─────────┬───────┐
+│       column_name       │ column_type │ null │ key │ default │ extra │
+├─────────────────────────┼─────────────┼──────┼─────┼─────────┼───────┤
+│ id                      │ VARCHAR     │ YES  │     │         │       │
+│ content_length          │ UINTEGER    │ YES  │     │         │       │
+│ date                    │ TIMESTAMP   │ YES  │     │         │       │
+│ type                    │ VARCHAR     │ YES  │     │         │       │
+│ content_type            │ VARCHAR     │ YES  │     │         │       │
+│ concurrent_to           │ VARCHAR     │ YES  │     │         │       │
+│ block_digest            │ VARCHAR     │ YES  │     │         │       │
+│ payload_digest          │ VARCHAR     │ YES  │     │         │       │
+│ ip_address              │ VARCHAR     │ YES  │     │         │       │
+│ refers_to               │ VARCHAR     │ YES  │     │         │       │
+│ target_uri              │ VARCHAR     │ YES  │     │         │       │
+│ truncated               │ VARCHAR     │ YES  │     │         │       │
+│ warc_info_id            │ VARCHAR     │ YES  │     │         │       │
+│ filename                │ VARCHAR     │ YES  │     │         │       │
+│ profile                 │ VARCHAR     │ YES  │     │         │       │
+│ identified_payload_type │ VARCHAR     │ YES  │     │         │       │
+│ segment_number          │ UINTEGER    │ YES  │     │         │       │
+│ segment_origin_id       │ VARCHAR     │ YES  │     │         │       │
+│ segment_total_length    │ UINTEGER    │ YES  │     │         │       │
+│ body                    │ BLOB        │ YES  │     │         │       │
+└─────────────────────────┴─────────────┴──────┴─────┴─────────┴───────┘
 ```
