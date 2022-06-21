@@ -3,7 +3,7 @@ warc-parquet
 </h1>
 
 <p align="center">
-🗄️ A simple tool for converting WARC files to Parquet files.
+🗄️  A simple tool for converting <a href="https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/">WARC</a> files to Parquet files.
 </p>
 
 <div align="center">
