@@ -7,7 +7,11 @@ fn fields() -> Vec<Field> {
         // Mandatory fields.
         Field::new("id", DataType::Utf8, false),
         Field::new("content_length", DataType::UInt32, false),
-        Field::new("date", DataType::Timestamp(TimeUnit::Second, None), false),
+        Field::new(
+            "date",
+            DataType::Timestamp(TimeUnit::Millisecond, None),
+            false,
+        ),
         Field::new("type", DataType::Utf8, false),
         // Optional fields.
         Field::new("content_type", DataType::Utf8, true),

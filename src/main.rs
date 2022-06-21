@@ -95,6 +95,7 @@ fn main() -> Result<(), Error> {
     let props = Some(
         WriterProperties::builder()
             .set_compression(args.compression.into())
+            .set_created_by(String::from("warc-parquet"))
             .build(),
     );
     let mut writer = ArrowWriter::try_new(parquet_file, batch.schema(), props)?;

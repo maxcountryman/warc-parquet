@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use arrow::array::{ArrayRef, BinaryArray, StringArray, TimestampSecondArray, UInt32Array};
+use arrow::array::{ArrayRef, BinaryArray, StringArray, TimestampMillisecondArray, UInt32Array};
 use chrono::NaiveDateTime;
 use warc::{BufferedBody, Record, WarcHeader};
 
@@ -71,16 +71,19 @@ impl RecordColumns {
             .unwrap()]))
     }
 
-    fn date(&self) -> Arc<TimestampSecondArray> {
-        Arc::new(TimestampSecondArray::from(vec![self
-            .record
-            .header(WarcHeader::Date)
-            .map(|s| {
-                NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%SZ")
-                    .unwrap()
-                    .timestamp()
-            })
-            .unwrap()]))
+    fn date(&self) -> Arc<TimestampMillisecondArray> {
+        Arc::new(TimestampMillisecondArray::from_vec(
+            vec![self
+                .record
+                .header(WarcHeader::Date)
+                .map(|s| {
+                    NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%SZ")
+                        .unwrap()
+                        .timestamp_millis()
+                })
+                .unwrap()],
+            None,
+        ))
     }
 
     fn r#type(&self) -> Arc<StringArray> {
