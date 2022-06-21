@@ -12,7 +12,6 @@ use warc::WarcReader;
 
 #[derive(ArgEnum, Clone, Debug)]
 enum OptCompression {
-    #[clap()]
     Uncompressed,
     Snappy,
     Gzip,
