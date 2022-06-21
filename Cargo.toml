@@ -11,7 +11,10 @@ repository = "https://github.com/maxcountryman/warc-parquet"
 arrow = "16.0.0"
 chrono = "0.4.19"
 parquet = "16.0.0"
-structopt = "0.3.26"
+
+[dependencies.clap]
+version = "3.2.5"
+features = ["derive"]
 
 [dependencies.warc]
 version = "0.3.1"

@@ -6,25 +6,54 @@ use std::{
 };
 
 use arrow::{datatypes::Schema, record_batch::RecordBatch};
+use clap::{ArgEnum, Parser};
 use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
-use structopt::StructOpt;
 use warc::WarcReader;
 
+#[derive(ArgEnum, Clone, Debug)]
+enum OptCompression {
+    #[clap()]
+    Uncompressed,
+    Snappy,
+    Gzip,
+    Lzo,
+    Brotli,
+    Lz4,
+    Zstd,
+}
+
+impl From<OptCompression> for Compression {
+    fn from(opt_compression: OptCompression) -> Self {
+        match opt_compression {
+            OptCompression::Uncompressed => Compression::UNCOMPRESSED,
+            OptCompression::Snappy => Compression::SNAPPY,
+            OptCompression::Gzip => Compression::GZIP,
+            OptCompression::Lzo => Compression::LZO,
+            OptCompression::Brotli => Compression::BROTLI,
+            OptCompression::Lz4 => Compression::LZ4,
+            OptCompression::Zstd => Compression::ZSTD,
+        }
+    }
+}
+
 /// A program for converting WARC-formatted files to Parquet.
-#[derive(StructOpt, Debug)]
-#[structopt(name = "warc-parquet")]
-struct Opt {
+#[derive(Parser, Debug)]
+struct Args {
     /// Set if the WARC file is compressed with gzip.
-    #[structopt(long)]
+    #[clap(long)]
     gzipped: bool,
 
     /// A path to a WARC-formatted file to be read from.
-    #[structopt(parse(from_os_str))]
+    #[clap(parse(from_os_str))]
     warc_input: PathBuf,
 
     /// A path to write Parquet to; existing data WILL be overwritten!
-    #[structopt(parse(from_os_str))]
+    #[clap(parse(from_os_str))]
     parquet_output: PathBuf,
+
+    /// The compression used for the Parquet.
+    #[clap(short, long, arg_enum, value_parser, default_value = "snappy")]
+    compression: OptCompression,
 }
 
 fn process_records<R: BufRead>(schema: &Arc<Schema>, reader: WarcReader<R>) -> Vec<RecordBatch> {
@@ -49,22 +78,23 @@ fn process_records<R: BufRead>(schema: &Arc<Schema>, reader: WarcReader<R>) -> V
 }
 
 fn main() -> Result<(), Error> {
-    let opt = Opt::from_args();
+    let args = Args::parse();
 
     let schema = warc_parquet::schema();
-    let batches = if opt.gzipped {
-        let warc_reader = WarcReader::from_path_gzip(&opt.warc_input)?;
+    let warc_path = args.warc_input;
+    let batches = if args.gzipped {
+        let warc_reader = WarcReader::from_path_gzip(&warc_path)?;
         process_records(&schema, warc_reader)
     } else {
-        let warc_reader = WarcReader::from_path(&opt.warc_input)?;
+        let warc_reader = WarcReader::from_path(&warc_path)?;
         process_records(&schema, warc_reader)
     };
 
-    let parquet_file = File::create(opt.parquet_output)?;
+    let parquet_file = File::create(args.parquet_output)?;
     let batch = RecordBatch::concat(&schema, &batches[..]).unwrap();
     let props = Some(
         WriterProperties::builder()
-            .set_compression(Compression::SNAPPY)
+            .set_compression(args.compression.into())
             .build(),
     );
     let mut writer = ArrowWriter::try_new(parquet_file, batch.schema(), props)?;
