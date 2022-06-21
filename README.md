@@ -33,3 +33,25 @@ $ warc-parquet --gzipped example.warc.gz example.snappy.parquet
 ```
 
 > ⚠️ Note that the Parquet path **WILL** be overwritten.
+
+There are any number of ways to consume Parquet once you have it. However a natural fit might be
+[DuckDB](https://duckdb.org):
+
+```
+$ duckdb
+v0.3.3 fe9ba8003
+Enter ".help" for usage hints.
+Connected to a transient in-memory database.
+Use ".open FILENAME" to reopen on a persistent database.
+D select id from 'example.snappy.parquet';
+┌─────────────────────────────────────────────────┐
+│                       id                        │
+├─────────────────────────────────────────────────┤
+│ <urn:uuid:A8063499-7675-4D8D-A736-A1D7DAE84C84> │
+│ <urn:uuid:3EB20966-D74F-4949-AACB-23DB3A0733A7> │
+│ <urn:uuid:8B92CADC-F770-45BE-8B72-E13A61CD6D1C> │
+│ <urn:uuid:4C0E9E17-E21B-49E0-859A-D1016FBDE636> │
+│ <urn:uuid:14F502A5-3BDE-4D0B-8A43-95F4BB8398C6> │
+│ <urn:uuid:6B6D6ADD-52FF-4760-AA00-FB9E739CABBE> │
+└─────────────────────────────────────────────────┘
+```
