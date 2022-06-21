@@ -37,6 +37,7 @@ impl From<OptCompression> for Compression {
 
 /// A program for converting WARC-formatted files to Parquet.
 #[derive(Parser, Debug)]
+#[clap(version)]
 struct Args {
     /// Set if the WARC file is compressed with gzip.
     #[clap(long)]
@@ -51,7 +52,7 @@ struct Args {
     parquet_output: PathBuf,
 
     /// The compression used for the Parquet.
-    #[clap(short, long, arg_enum, value_parser, default_value = "snappy")]
+    #[clap(short, long, arg_enum, value_parser, default_value_t = OptCompression::Snappy)]
     compression: OptCompression,
 }
 
