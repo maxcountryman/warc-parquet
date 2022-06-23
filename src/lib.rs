@@ -1,15 +1,34 @@
-//! Simple WARC to Parquet conversion tooling.
+//! A small library providing a reader from WARC to Arrow.
 //!
-//! Using [`RecordColumns`] to create the necessary columns from a provided
-//! [`Record`](warc::Record) along with
-//! [`schema()`] is enough to prepare a complete Arrow translation from WARC.
-//! Leveraging [`ArrowWriter`](parquet::arrow::ArrowWriter), this representation
-//! can then be persisted to disk as Parquet.
+//! This implementation is written for the WARC Format 1.0 specification.
 //!
-//! This implementation assumes the WARC 1.0 format.
+//! Users will consume the [`Reader`] struct to create a new reader of a WARC
+//! source. The reader expects some `BufRead` source which it will internally
+//! wrap with a [`WarcReader`](warc::WarcReader). Once
+//! created, the reader can be iterated in order to retrieve the Arrow
+//! representation of the WARC records.
+//!
+//! The standard WARC schema is also provided via the [`struct@DEFAULT_SCHEMA`]
+//! reference.
+//!
+//! The `warc-parquet` command line utility leverages this library directly.
+//!
+//! # Example
+//!
+//! ```rust
+//! use std::io::{BufReader, Cursor};
+//!
+//! use warc_parquet::{Reader, DEFAULT_SCHEMA};
+//!
+//! # fn main() {
+//! let file = BufReader::new(Cursor::new(b""));
+//! let schema = DEFAULT_SCHEMA.clone();
+//! let reader = Reader::new(file, schema);
+//! for record in reader {
+//!     dbg!(record); // There won't be anything, since we provided an empty buffer.
+//! }
+//! # }
+//! ```
+mod reader;
 
-mod record_columns;
-mod schema;
-
-pub use record_columns::RecordColumns;
-pub use schema::schema;
+pub use reader::{Reader, DEFAULT_SCHEMA};

@@ -1,14 +1,16 @@
 use std::{
-    fs::File,
-    io::{BufRead, Error},
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, Error},
     path::PathBuf,
-    sync::Arc,
 };
 
-use arrow::{datatypes::Schema, record_batch::RecordBatch};
+use arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use clap::{ArgEnum, Parser};
+use libflate::gzip::MultiDecoder as GzipReader;
 use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
-use warc::WarcReader;
+use warc_parquet::{Reader, DEFAULT_SCHEMA};
+
+const MB: usize = 1_048_576;
 
 #[derive(ArgEnum, Clone, Debug)]
 enum OptCompression {
@@ -56,49 +58,35 @@ struct Args {
     compression: OptCompression,
 }
 
-fn process_records<R: BufRead>(schema: &Arc<Schema>, reader: WarcReader<R>) -> Vec<RecordBatch> {
+fn concat_batches<R: BufRead>(reader: Reader<R>, schema: SchemaRef) -> RecordBatch {
     let mut batches = vec![];
-    for record in reader.iter_records() {
-        match record {
-            Ok(record) => {
-                let schema = schema.clone();
-                let columns = warc_parquet::RecordColumns::new(record).columns();
-                let batch = RecordBatch::try_new(schema, columns).unwrap();
-                batches.push(batch);
-            }
-
-            Err(err) => {
-                // TODO: Perhaps this should panic if a `strict` mode is provided.
-                println!("Error: {}", err)
-            }
-        }
+    for batch in reader {
+        batches.push(batch.unwrap());
     }
-
-    batches
+    RecordBatch::concat(&schema, &batches[..]).unwrap()
 }
 
 fn main() -> Result<(), Error> {
     let args = Args::parse();
 
-    let schema = warc_parquet::schema();
-    let warc_path = args.warc_input;
-    let batches = if args.gzipped {
-        let warc_reader = WarcReader::from_path_gzip(&warc_path)?;
-        process_records(&schema, warc_reader)
+    let file = OpenOptions::new().read(true).open(args.warc_input)?;
+    let schema = DEFAULT_SCHEMA.clone();
+
+    let batch = if args.gzipped {
+        let gzip_stream = GzipReader::new(BufReader::with_capacity(MB, file))?;
+        let reader = Reader::new(BufReader::new(gzip_stream), schema.clone());
+        concat_batches(reader, schema)
     } else {
-        let warc_reader = WarcReader::from_path(&warc_path)?;
-        process_records(&schema, warc_reader)
+        let reader = Reader::new(BufReader::with_capacity(MB, file), schema.clone());
+        concat_batches(reader, schema)
     };
 
     let parquet_file = File::create(args.parquet_output)?;
-    let batch = RecordBatch::concat(&schema, &batches[..]).unwrap();
-    let props = Some(
-        WriterProperties::builder()
-            .set_compression(args.compression.into())
-            .set_created_by(String::from("warc-parquet"))
-            .build(),
-    );
-    let mut writer = ArrowWriter::try_new(parquet_file, batch.schema(), props)?;
+    let props = WriterProperties::builder()
+        .set_compression(args.compression.into())
+        .set_created_by(String::from("warc-parquet"))
+        .build();
+    let mut writer = ArrowWriter::try_new(parquet_file, batch.schema(), Some(props))?;
 
     writer.write(&batch)?;
     writer.close()?;

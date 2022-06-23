@@ -11,11 +11,13 @@ repository = "https://github.com/maxcountryman/warc-parquet"
 arrow = "16.0.0"
 chrono = "0.4.19"
 parquet = "16.0.0"
+libflate = "1.2.0"
+lazy_static = "1.4.0"
 
 [dependencies.clap]
 version = "3.2.5"
 features = ["derive"]
 
 [dependencies.warc]
-version = "0.3.1"
+path = "../warc"
 features = ["gzip"]

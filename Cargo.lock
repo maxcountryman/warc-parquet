@@ -1009,8 +1009,6 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "warc"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e44585619c04f9a4bcfdfbbbefff9e7c4e277a693424162b30c88aaf3abd785e"
 dependencies = [
  "chrono",
  "libflate",
@@ -1026,6 +1024,8 @@ dependencies = [
  "arrow",
  "chrono",
  "clap",
+ "lazy_static",
+ "libflate",
  "parquet",
  "warc",
 ]

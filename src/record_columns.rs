@@ -33,7 +33,7 @@ impl RecordColumns {
         Self { record }
     }
 
-    /// Returns the formatted columsn relative to the provided [`Record`].
+    /// Returns the formatted columns relative to the provided [`Record`].
     pub fn columns(self) -> Vec<ArrayRef> {
         vec![
             self.id(),
