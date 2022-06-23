@@ -55,7 +55,8 @@ pub struct Reader<R: BufRead> {
 }
 
 impl<R: BufRead> Reader<R> {
-    /// Creates a new `Reader<R>` with the provided WARC source reader and schema.
+    /// Creates a new `Reader<R>` with the provided WARC source reader and
+    /// schema.
     ///
     /// # Example
     ///
