@@ -1,6 +1,6 @@
 [package]
 name = "warc-parquet"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "A simple utility for converting WARC to Parquet"
 license = "MIT"
