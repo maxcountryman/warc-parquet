@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! A small library providing a reader from WARC to Arrow.
 //!
 //! This implementation is written for the WARC Format 1.0 specification.
