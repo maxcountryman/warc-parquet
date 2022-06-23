@@ -8,7 +8,7 @@ use arrow::{
 };
 use chrono::NaiveDateTime;
 use lazy_static::lazy_static;
-use warc::{BufferedBody, Record, WarcHeader, WarcReader};
+use warc::{BufferedBody, Record, StreamingIter, WarcHeader, WarcReader};
 
 lazy_static! {
     /// The WARC Format 1.0 schema.
@@ -61,19 +61,42 @@ impl<R: BufRead> Reader<R> {
             reader: WarcReader::new(reader),
         }
     }
+
+    /// Returns an interface which can be used to iterate through the records.
+    pub fn iter_reader(&mut self) -> IterReader<'_, R> {
+        let stream_iter = self.reader.stream_records();
+        IterReader::new(stream_iter, self.schema.clone())
+    }
 }
 
-impl<R: BufRead> IntoIterator for Reader<R> {
-    type Item = Result<RecordBatch>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+/// An iterator type for the underlying data. This consumes the streaming API of
+/// the [`WarcReader`].
+pub struct IterReader<'r, R> {
+    schema: SchemaRef,
+    stream_iter: StreamingIter<'r, R>,
+}
 
-    fn into_iter(self) -> Self::IntoIter {
-        let mut batches = vec![];
-        for record in self.reader.iter_records() {
-            batches.push(parse(&record.unwrap(), self.schema.fields()));
+impl<'r, R: BufRead> IterReader<'r, R> {
+    pub(crate) fn new(stream_iter: StreamingIter<'r, R>, schema: SchemaRef) -> IterReader<'_, R> {
+        Self {
+            schema,
+            stream_iter,
         }
+    }
+}
 
-        batches.into_iter()
+impl<R: BufRead> Iterator for IterReader<'_, R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(record) = self.stream_iter.next_item() {
+            Some(parse(
+                &record.unwrap().into_buffered().unwrap(),
+                self.schema.fields(),
+            ))
+        } else {
+            None
+        }
     }
 }
 

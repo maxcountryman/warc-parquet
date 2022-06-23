@@ -58,9 +58,9 @@ struct Args {
     compression: OptCompression,
 }
 
-fn concat_batches<R: BufRead>(reader: Reader<R>, schema: SchemaRef) -> RecordBatch {
+fn concat_batches<R: BufRead>(mut reader: Reader<R>, schema: SchemaRef) -> RecordBatch {
     let mut batches = vec![];
-    for batch in reader {
+    for batch in reader.iter_reader() {
         batches.push(batch.unwrap());
     }
     RecordBatch::concat(&schema, &batches[..]).unwrap()
