@@ -1,8 +1,8 @@
 [package]
 name = "warc-parquet"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2021"
-description = "A simple tool for converting WARC files to Parquet files."
+description = "A simple utility for converting WARC to Parquet"
 license = "MIT"
 keywords = ["warc", "parquet"]
 repository = "https://github.com/maxcountryman/warc-parquet"
@@ -13,11 +13,8 @@ chrono = "0.4.19"
 parquet = "16.0.0"
 libflate = "1.2.0"
 lazy_static = "1.4.0"
+warc = "0.3.1"
 
 [dependencies.clap]
 version = "3.2.5"
 features = ["derive"]
-
-[dependencies.warc]
-path = "../warc"
-features = ["gzip"]
