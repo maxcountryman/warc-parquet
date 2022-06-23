@@ -23,8 +23,8 @@
 //! # fn main() {
 //! let file = BufReader::new(Cursor::new(b""));
 //! let schema = DEFAULT_SCHEMA.clone();
-//! let reader = Reader::new(file, schema);
-//! for record in reader {
+//! let mut reader = Reader::new(file, schema);
+//! for record in reader.iter_reader() {
 //!     dbg!(record); // There won't be anything, since we provided an empty buffer.
 //! }
 //! # }
