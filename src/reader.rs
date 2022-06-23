@@ -15,7 +15,7 @@ lazy_static! {
     ///
     /// This specification is drawn from the standard
     /// [document](https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/).
-    pub static ref DEFAULT_SCHEMA: Arc<Schema> =
+    pub static ref DEFAULT_SCHEMA: SchemaRef =
     Arc::new(Schema::new(vec![
         // Mandatory fields.
         Field::new("id", DataType::Utf8, false),
