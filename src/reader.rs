@@ -55,6 +55,24 @@ pub struct Reader<R: BufRead> {
 }
 
 impl<R: BufRead> Reader<R> {
+    /// Creates a new `Reader<R>` with the provided WARC source reader and schema.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::io::{BufReader, Cursor};
+    ///
+    /// use warc_parquet::{Reader, DEFAULT_SCHEMA};
+    ///
+    /// # fn main() {
+    /// let file = BufReader::new(Cursor::new(b""));
+    /// let schema = DEFAULT_SCHEMA.clone();
+    /// let mut reader = Reader::new(file, schema);
+    /// for record in reader.iter_reader() {
+    ///     dbg!(record); // There won't be anything, since we provided an empty buffer.
+    /// }
+    /// # }
+    /// ```
     pub fn new(reader: R, schema: SchemaRef) -> Self {
         Self {
             schema,
