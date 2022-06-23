@@ -52,8 +52,6 @@ lazy_static! {
 pub struct Reader<R: BufRead> {
     schema: SchemaRef,
     reader: WarcReader<R>,
-    records: Vec<Record<BufferedBody>>,
-    iter_index: usize,
 }
 
 impl<R: BufRead> Reader<R> {
@@ -61,36 +59,21 @@ impl<R: BufRead> Reader<R> {
         Self {
             schema,
             reader: WarcReader::new(reader),
-            records: vec![],
-            iter_index: 0,
-        }
-    }
-
-    fn collect_records(&mut self) {
-        if self.records.is_empty() {
-            let mut stream_iter = self.reader.stream_records();
-            let mut records = vec![];
-            while let Some(record) = stream_iter.next_item() {
-                records.push(record.unwrap().into_buffered().unwrap());
-            }
-            self.records = records;
         }
     }
 }
 
-impl<R: BufRead> Iterator for Reader<R> {
+impl<R: BufRead> IntoIterator for Reader<R> {
     type Item = Result<RecordBatch>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.collect_records();
-
-        if self.iter_index < self.records.len() {
-            let batch = parse(&self.records[self.iter_index], self.schema.fields());
-            self.iter_index += 1;
-            Some(batch)
-        } else {
-            None
+    fn into_iter(self) -> Self::IntoIter {
+        let mut batches = vec![];
+        for record in self.reader.iter_records() {
+            batches.push(parse(&record.unwrap(), self.schema.fields()));
         }
+
+        batches.into_iter()
     }
 }
 
