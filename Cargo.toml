@@ -1,8 +1,8 @@
 [package]
 name = "warc-parquet"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
-description = "A simple utility for converting WARC to Parquet"
+description = "A utility for converting WARC to Parquet."
 license = "MIT"
 keywords = ["warc", "parquet"]
 repository = "https://github.com/maxcountryman/warc-parquet"

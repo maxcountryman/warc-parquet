@@ -3,7 +3,7 @@ warc-parquet
 </h1>
 
 <p align="center">
-🗄️  A simple tool for converting <a href="https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/">WARC</a> files to Parquet files.
+🗄️  A utility for converting <a href="https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/">WARC</a> to Parquet.
 </p>
 
 <div align="center">
@@ -23,16 +23,29 @@ The binary may be installed via `cargo`:
 $ cargo install warc-parquet
 ```
 
+To use the crate in your project, add the following to your `Cargo.toml` file:
+
+```
+[dependencies]
+warc-parquet = "0.4"
+```
+
 ## 🤸 Usage
 
-Once installed, WARC files can be passed to the program with a target output path which Parquet will be written to:
+### The Binary
+
+Once installed, the `warc-parquet` utility can be used to transform WARC into Parquet:
 
 ```sh
 $ wget --warc-file example 'https://example.com'
-$ warc-parquet --gzipped example.warc.gz example.snappy.parquet
+$ cat example.warc.gz | warc-parquet --gzipped > example.snappy.parquet
 ```
 
-> ⚠️ Note that the Parquet path **WILL** be overwritten.
+### The Crate
+
+Refer to [the docs](https://docs.rs/warc-parquet) for more details about how to use the `Reader` within your own programs.
+
+### DuckDB
 
 There are any number of ways to consume Parquet once you have it. However a natural fit might be
 [DuckDB](https://duckdb.org):
