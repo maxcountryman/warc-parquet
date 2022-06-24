@@ -41,6 +41,27 @@ $ wget --warc-file example 'https://example.com'
 $ cat example.warc.gz | warc-parquet --gzipped > example.snappy.parquet
 ```
 
+`warc-parquet` is meant to fit organically into the UNIX ecosystem. As such processing multiple WARCs at once is straightforward:
+
+```sh
+$ wget --warc-file github 'https://github.com'
+$ cat example.warc.gz github.warc.gz | warc-parquet --gzipped > combined.snappy.parquet
+```
+
+It's also simple to preprocess via standard UNIX piping:
+
+```sh
+$ cat example.warc.gz | gzip -d | warc-parquet > example.snappy.parquet
+```
+
+Various compression options, including the option to forego compression altogether, are also available:
+
+```sh
+$ cat example.warc.gz | warc-parquet --gzipped --compression brotli > example.brotli.parquet
+```
+
+> 💡 `warc-parquent --help` displays complete options and usage information.
+
 ### The Crate
 
 Refer to [the docs](https://docs.rs/warc-parquet) for more details about how to use the `Reader` within your own programs.
