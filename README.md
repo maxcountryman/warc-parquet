@@ -77,6 +77,7 @@ v0.3.3 fe9ba8003
 Enter ".help" for usage hints.
 Connected to a transient in-memory database.
 Use ".open FILENAME" to reopen on a persistent database.
+
 D select type, id from 'example.snappy.parquet';
 ┌──────────┬─────────────────────────────────────────────────┐
 │   type   │                       id                        │
@@ -88,6 +89,7 @@ D select type, id from 'example.snappy.parquet';
 │ resource │ <urn:uuid:14F502A5-3BDE-4D0B-8A43-95F4BB8398C6> │
 │ resource │ <urn:uuid:6B6D6ADD-52FF-4760-AA00-FB9E739CABBE> │
 └──────────┴─────────────────────────────────────────────────┘
+
 D describe select * from 'example.snappy.parquet';
 ┌─────────────────────────┬─────────────┬──────┬─────┬─────────┬───────┐
 │       column_name       │ column_type │ null │ key │ default │ extra │
