@@ -60,7 +60,7 @@ Various compression options, including the option to forego compression altogeth
 $ cat example.warc.gz | warc-parquet --gzipped --compression brotli > example.brotli.parquet
 ```
 
-> 💡 `warc-parquent --help` displays complete options and usage information.
+> 💡 `warc-parquet --help` displays complete options and usage information.
 
 ### The Crate
 
