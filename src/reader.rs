@@ -84,19 +84,22 @@ impl<R: BufRead> Reader<R> {
     /// Returns an interface which can be used to iterate through the records.
     pub fn iter_reader(&mut self) -> IterReader<'_, R> {
         let stream_iter = self.reader.stream_records();
-        IterReader::new(stream_iter, self.schema.clone())
+        IterReader::new(stream_iter, &self.schema)
     }
 }
 
 /// An iterator type for the underlying data. This consumes the streaming API of
 /// the [`WarcReader`].
 pub struct IterReader<'r, R> {
-    schema: SchemaRef,
+    schema: &'r SchemaRef,
     stream_iter: StreamingIter<'r, R>,
 }
 
 impl<'r, R: BufRead> IterReader<'r, R> {
-    pub(crate) fn new(stream_iter: StreamingIter<'r, R>, schema: SchemaRef) -> IterReader<'_, R> {
+    pub(crate) fn new(
+        stream_iter: StreamingIter<'r, R>,
+        schema: &'r SchemaRef,
+    ) -> IterReader<'r, R> {
         Self {
             schema,
             stream_iter,
