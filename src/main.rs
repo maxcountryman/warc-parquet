@@ -1,6 +1,6 @@
 use std::{
-    fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Error},
+    fs::OpenOptions,
+    io::{self, BufRead, BufReader, Error},
     path::PathBuf,
 };
 
@@ -11,6 +11,7 @@ use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterPr
 use warc_parquet::{Reader, DEFAULT_SCHEMA};
 
 const MB: usize = 1_048_576;
+const STDIN_MARKER: &str = "-";
 
 #[derive(ArgEnum, Clone, Debug)]
 enum OptCompression {
@@ -37,21 +38,33 @@ impl From<OptCompression> for Compression {
     }
 }
 
-/// A program for converting WARC-formatted files to Parquet.
+/// A utility for converting WARC to Parquet.
+///
+/// WARC may be provided either as a path to a WARC file or via STDIN. Parquet
+/// is then printed to STDOUT.
+///
+/// With a provided path:
+///
+/// $ warc-parquet example.warc.gz --gzipped > example.snappy.parquet
+///
+/// Alternatively using STDIN:
+///
+/// $ cat example.warc.gz | gzip -d | warc-parquet > example.snappy.parquet
+///
+/// Various compression formats for the Parquet output are also supported:
+///
+/// $ cat example.warc.gz | warc-parquet --gzipped --compression brotli >
+/// example.br.parquet
 #[derive(Parser, Debug)]
 #[clap(version)]
 struct Args {
-    /// Set if the WARC file is compressed with gzip.
+    /// Set if the WARC input is compressed with gzip.
     #[clap(long)]
     gzipped: bool,
 
-    /// A path to a WARC-formatted file to be read from.
-    #[clap(parse(from_os_str))]
+    /// WARC input provided either as a path or via STDIN.
+    #[clap(default_value = STDIN_MARKER, parse(from_os_str))]
     warc_input: PathBuf,
-
-    /// A path to write Parquet to; existing data WILL be overwritten!
-    #[clap(parse(from_os_str))]
-    parquet_output: PathBuf,
 
     /// The compression used for the Parquet.
     #[clap(short, long, arg_enum, value_parser, default_value_t = OptCompression::Snappy)]
@@ -69,24 +82,31 @@ fn concat_batches<R: BufRead>(mut reader: Reader<R>, schema: SchemaRef) -> Recor
 fn main() -> Result<(), Error> {
     let args = Args::parse();
 
-    let file = OpenOptions::new().read(true).open(args.warc_input)?;
+    let stream = if args.warc_input == PathBuf::from(STDIN_MARKER) {
+        Box::new(BufReader::with_capacity(MB, io::stdin())) as Box<dyn BufRead>
+    } else {
+        Box::new(BufReader::with_capacity(
+            MB,
+            OpenOptions::new().read(true).open(args.warc_input)?,
+        )) as Box<dyn BufRead>
+    };
+
     let schema = DEFAULT_SCHEMA.clone();
 
     let batch = if args.gzipped {
-        let gzip_stream = GzipReader::new(BufReader::with_capacity(MB, file))?;
+        let gzip_stream = GzipReader::new(stream)?;
         let reader = Reader::new(BufReader::new(gzip_stream), schema.clone());
         concat_batches(reader, schema)
     } else {
-        let reader = Reader::new(BufReader::with_capacity(MB, file), schema.clone());
+        let reader = Reader::new(stream, schema.clone());
         concat_batches(reader, schema)
     };
 
-    let parquet_file = File::create(args.parquet_output)?;
     let props = WriterProperties::builder()
         .set_compression(args.compression.into())
         .set_created_by(String::from("warc-parquet"))
         .build();
-    let mut writer = ArrowWriter::try_new(parquet_file, batch.schema(), Some(props))?;
+    let mut writer = ArrowWriter::try_new(io::stdout(), batch.schema(), Some(props))?;
 
     writer.write(&batch)?;
     writer.close()?;
