@@ -16,35 +16,35 @@ lazy_static! {
     /// This specification is drawn from the standard
     /// [document](https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/).
     pub static ref DEFAULT_SCHEMA: SchemaRef =
-    Arc::new(Schema::new(vec![
-        // Mandatory fields.
-        Field::new("id", DataType::Utf8, false),
-        Field::new("content_length", DataType::UInt32, false),
-        Field::new(
-            "date",
-            DataType::Timestamp(TimeUnit::Millisecond, None),
-            false,
-        ),
-        Field::new("type", DataType::Utf8, false),
+        Arc::new(Schema::new(vec![
+            // Mandatory fields.
+            Field::new("id", DataType::Utf8, false),
+            Field::new("content_length", DataType::UInt32, false),
+            Field::new(
+                "date",
+                DataType::Timestamp(TimeUnit::Millisecond, None),
+                false,
+            ),
+            Field::new("type", DataType::Utf8, false),
 
-        // Optional fields.
-        Field::new("content_type", DataType::Utf8, true),
-        Field::new("concurrent_to", DataType::Utf8, true),
-        Field::new("block_digest", DataType::Utf8, true),
-        Field::new("payload_digest", DataType::Utf8, true),
-        Field::new("ip_address", DataType::Utf8, true),
-        Field::new("refers_to", DataType::Utf8, true),
-        Field::new("target_uri", DataType::Utf8, true),
-        Field::new("truncated", DataType::Utf8, true),
-        Field::new("warc_info_id", DataType::Utf8, true),
-        Field::new("filename", DataType::Utf8, true),
-        Field::new("profile", DataType::Utf8, true),
-        Field::new("identified_payload_type", DataType::Utf8, true),
-        Field::new("segment_number", DataType::UInt32, true),
-        Field::new("segment_origin_id", DataType::Utf8, true),
-        Field::new("segment_total_length", DataType::UInt32, true),
-        Field::new("body", DataType::Binary, true),
-    ]));
+            // Optional fields.
+            Field::new("content_type", DataType::Utf8, true),
+            Field::new("concurrent_to", DataType::Utf8, true),
+            Field::new("block_digest", DataType::Utf8, true),
+            Field::new("payload_digest", DataType::Utf8, true),
+            Field::new("ip_address", DataType::Utf8, true),
+            Field::new("refers_to", DataType::Utf8, true),
+            Field::new("target_uri", DataType::Utf8, true),
+            Field::new("truncated", DataType::Utf8, true),
+            Field::new("warc_info_id", DataType::Utf8, true),
+            Field::new("filename", DataType::Utf8, true),
+            Field::new("profile", DataType::Utf8, true),
+            Field::new("identified_payload_type", DataType::Utf8, true),
+            Field::new("segment_number", DataType::UInt32, true),
+            Field::new("segment_origin_id", DataType::Utf8, true),
+            Field::new("segment_total_length", DataType::UInt32, true),
+            Field::new("body", DataType::Binary, true),
+        ]));
 }
 
 /// A reader which transforms the given `BufRead` source into an Arrow
@@ -83,8 +83,7 @@ impl<R: BufRead> Reader<R> {
 
     /// Returns an interface which can be used to iterate through the records.
     pub fn iter_reader(&mut self) -> IterReader<'_, R> {
-        let stream_iter = self.reader.stream_records();
-        IterReader::new(stream_iter, &self.schema)
+        IterReader::new(self.reader.stream_records(), &self.schema)
     }
 }
 
@@ -111,14 +110,12 @@ impl<R: BufRead> Iterator for IterReader<'_, R> {
     type Item = Result<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(record) = self.stream_iter.next_item() {
-            Some(parse(
+        self.stream_iter.next_item().map(|record| {
+            parse(
                 &record.unwrap().into_buffered().unwrap(),
                 self.schema.fields(),
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 }
 
