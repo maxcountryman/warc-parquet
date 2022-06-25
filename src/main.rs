@@ -45,15 +45,15 @@ impl From<OptCompression> for Compression {
 ///
 /// With a provided path:
 ///
-/// $ warc-parquet example.warc.gz --gzipped > example.snappy.parquet
+///     $ warc-parquet example.warc.gz --gzipped > example.snappy.parquet
 ///
 /// Alternatively using STDIN:
 ///
-/// $ cat example.warc.gz | gzip -d | warc-parquet > example.snappy.parquet
+///     $ cat example.warc.gz | gzip -d | warc-parquet > example.snappy.parquet
 ///
 /// Various compression formats for the Parquet output are also supported:
 ///
-/// $ cat example.warc.gz | warc-parquet --gzipped --compression brotli >
+///     $ cat example.warc.gz | warc-parquet --gzipped --compression brotli >
 /// example.br.parquet
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -82,13 +82,15 @@ fn concat_batches<R: BufRead>(mut reader: Reader<R>, schema: SchemaRef) -> Recor
 fn main() -> Result<(), Error> {
     let args = Args::parse();
 
-    let stream = if args.warc_input == PathBuf::from(STDIN_MARKER) {
-        Box::new(BufReader::with_capacity(MB, io::stdin())) as Box<dyn BufRead>
+    let mut buf_reader_stdin;
+    let mut buf_reader_file;
+    let stream: &mut dyn BufRead = if args.warc_input == PathBuf::from(STDIN_MARKER) {
+        buf_reader_stdin = BufReader::with_capacity(MB, io::stdin());
+        &mut buf_reader_stdin
     } else {
-        Box::new(BufReader::with_capacity(
-            MB,
-            OpenOptions::new().read(true).open(args.warc_input)?,
-        )) as Box<dyn BufRead>
+        buf_reader_file =
+            BufReader::with_capacity(MB, OpenOptions::new().read(true).open(args.warc_input)?);
+        &mut buf_reader_file
     };
 
     let schema = DEFAULT_SCHEMA.clone();
