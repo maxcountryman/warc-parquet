@@ -4,16 +4,19 @@ use std::{
     path::PathBuf,
 };
 
-use arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use libflate::gzip::MultiDecoder as GzipReader;
-use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
+use parquet::{
+    arrow::ArrowWriter,
+    basic::{BrotliLevel, Compression, GzipLevel, ZstdLevel},
+    file::properties::WriterProperties,
+};
 use warc_parquet::{Reader, DEFAULT_SCHEMA};
 
 const MB: usize = 1_048_576;
 const STDIN_MARKER: &str = "-";
 
-#[derive(ArgEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug)]
 enum OptCompression {
     Uncompressed,
     Snappy,
@@ -29,11 +32,11 @@ impl From<OptCompression> for Compression {
         match opt_compression {
             OptCompression::Uncompressed => Compression::UNCOMPRESSED,
             OptCompression::Snappy => Compression::SNAPPY,
-            OptCompression::Gzip => Compression::GZIP,
+            OptCompression::Gzip => Compression::GZIP(GzipLevel::default()),
             OptCompression::Lzo => Compression::LZO,
-            OptCompression::Brotli => Compression::BROTLI,
+            OptCompression::Brotli => Compression::BROTLI(BrotliLevel::default()),
             OptCompression::Lz4 => Compression::LZ4,
-            OptCompression::Zstd => Compression::ZSTD,
+            OptCompression::Zstd => Compression::ZSTD(ZstdLevel::default()),
         }
     }
 }
@@ -63,54 +66,52 @@ struct Args {
     gzipped: bool,
 
     /// WARC input provided either as a path or via STDIN.
-    #[clap(default_value = STDIN_MARKER, parse(from_os_str))]
+    #[clap(default_value = STDIN_MARKER, value_parser)]
     warc_input: PathBuf,
 
     /// The compression used for the Parquet.
-    #[clap(short, long, arg_enum, value_parser, default_value_t = OptCompression::Snappy)]
+    #[clap(short, long, value_enum, value_parser, default_value_t = OptCompression::Snappy)]
     compression: OptCompression,
-}
-
-fn concat_batches<R: BufRead>(mut reader: Reader<R>, schema: SchemaRef) -> RecordBatch {
-    let mut batches = vec![];
-    for batch in reader.iter_reader() {
-        batches.push(batch.unwrap());
-    }
-    RecordBatch::concat(&schema, &batches[..]).unwrap()
 }
 
 fn main() -> Result<(), Error> {
     let args = Args::parse();
 
-    let mut buf_reader_stdin;
-    let mut buf_reader_file;
-    let stream: &mut dyn BufRead = if args.warc_input == PathBuf::from(STDIN_MARKER) {
-        buf_reader_stdin = BufReader::with_capacity(MB, io::stdin());
-        &mut buf_reader_stdin
+    let stream: Box<dyn BufRead> = if args.warc_input == PathBuf::from(STDIN_MARKER) {
+        Box::new(BufReader::with_capacity(MB, io::stdin()))
     } else {
-        buf_reader_file =
-            BufReader::with_capacity(MB, OpenOptions::new().read(true).open(args.warc_input)?);
-        &mut buf_reader_file
+        Box::new(BufReader::with_capacity(
+            MB,
+            OpenOptions::new().read(true).open(args.warc_input)?,
+        ))
     };
 
     let schema = DEFAULT_SCHEMA.clone();
-
-    let batch = if args.gzipped {
-        let gzip_stream = GzipReader::new(stream)?;
-        let reader = Reader::new(BufReader::new(gzip_stream), schema.clone());
-        concat_batches(reader, schema)
-    } else {
-        let reader = Reader::new(stream, schema.clone());
-        concat_batches(reader, schema)
-    };
 
     let props = WriterProperties::builder()
         .set_compression(args.compression.into())
         .set_created_by(String::from("warc-parquet"))
         .build();
-    let mut writer = ArrowWriter::try_new(io::stdout(), batch.schema(), Some(props))?;
 
-    writer.write(&batch)?;
+    let mut writer = ArrowWriter::try_new(io::stdout(), schema.clone(), Some(props))?;
+
+    if args.gzipped {
+        let gzip_stream = GzipReader::new(stream)?;
+        let mut reader = Reader::new(BufReader::new(gzip_stream), schema.clone());
+
+        for batch in reader.iter_reader() {
+            let batch = batch.expect("Failed to read batch from WARC");
+            writer.write(&batch)?;
+        }
+    } else {
+        let mut reader = Reader::new(stream, schema.clone());
+
+        for batch in reader.iter_reader() {
+            let batch = batch.expect("Failed to read batch from WARC");
+            writer.write(&batch)?;
+        }
+    }
+
     writer.close()?;
 
     Ok(())

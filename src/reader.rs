@@ -2,7 +2,7 @@ use std::{io::BufRead, sync::Arc};
 
 use arrow::{
     array::{ArrayRef, BinaryArray, StringArray, TimestampMillisecondArray, UInt32Array},
-    datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit},
+    datatypes::{DataType, Field, Fields, Schema, SchemaRef, TimeUnit},
     error::Result,
     record_batch::RecordBatch,
 };
@@ -113,13 +113,13 @@ impl<R: BufRead> Iterator for IterReader<'_, R> {
         self.stream_iter.next_item().map(|record| {
             parse(
                 &record.unwrap().into_buffered().unwrap(),
-                self.schema.fields(),
+                &self.schema.fields,
             )
         })
     }
 }
 
-fn parse(record: &Record<BufferedBody>, fields: &[Field]) -> Result<RecordBatch> {
+fn parse(record: &Record<BufferedBody>, fields: &Fields) -> Result<RecordBatch> {
     let arrays: Result<Vec<ArrayRef>> = fields
         .iter()
         .map(|field| {
@@ -136,17 +136,15 @@ fn parse(record: &Record<BufferedBody>, fields: &[Field]) -> Result<RecordBatch>
                     .expect("Content-Length header is mandatory.")]))
                     as ArrayRef,
 
-                "date" => Arc::new(TimestampMillisecondArray::from_vec(
-                    vec![record
-                        .header(WarcHeader::Date)
-                        .map(|s| {
-                            NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%SZ")
-                                .unwrap()
-                                .timestamp_millis()
-                        })
-                        .expect("WARC-Date header is mandatory.")],
-                    None,
-                )) as ArrayRef,
+                "date" => Arc::new(TimestampMillisecondArray::from(vec![record
+                    .header(WarcHeader::Date)
+                    .map(|s| {
+                        NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%SZ")
+                            .unwrap()
+                            .timestamp_millis()
+                    })
+                    .expect("WARC-Date header is mandatory.")]))
+                    as ArrayRef,
 
                 "type" => Arc::new(StringArray::from(vec![record
                     .header(WarcHeader::WarcType)
