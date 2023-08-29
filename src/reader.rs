@@ -52,6 +52,7 @@ lazy_static! {
 pub struct Reader<R: BufRead> {
     schema: SchemaRef,
     reader: WarcReader<R>,
+    batch_size: usize,
 }
 
 impl<R: BufRead> Reader<R> {
@@ -74,16 +75,17 @@ impl<R: BufRead> Reader<R> {
     /// }
     /// # }
     /// ```
-    pub fn new(reader: R, schema: SchemaRef) -> Self {
+    pub fn new(reader: R, schema: SchemaRef, batch_size: usize) -> Self {
         Self {
             schema,
             reader: WarcReader::new(reader),
+            batch_size,
         }
     }
 
     /// Returns an interface which can be used to iterate through the records.
     pub fn iter_reader(&mut self) -> IterReader<'_, R> {
-        IterReader::new(self.reader.stream_records(), &self.schema)
+        IterReader::new(self.reader.stream_records(), &self.schema, self.batch_size)
     }
 }
 
@@ -92,16 +94,19 @@ impl<R: BufRead> Reader<R> {
 pub struct IterReader<'r, R> {
     schema: &'r SchemaRef,
     stream_iter: StreamingIter<'r, R>,
+    batch_size: usize,
 }
 
 impl<'r, R: BufRead> IterReader<'r, R> {
     pub(crate) fn new(
         stream_iter: StreamingIter<'r, R>,
         schema: &'r SchemaRef,
+        batch_size: usize,
     ) -> IterReader<'r, R> {
         Self {
             schema,
             stream_iter,
+            batch_size,
         }
     }
 }
@@ -241,4 +246,12 @@ fn parse(record: &Record<BufferedBody>, fields: &Fields) -> Result<RecordBatch> 
         .collect();
 
     arrays.and_then(|arr| RecordBatch::try_new(Arc::new(Schema::new(fields.to_vec())), arr))
+}
+
+fn parse_batch(records: &[Record<BufferedBody>], schema: &SchemaRef) -> Result<RecordBatch> {
+    let input_batches: Vec<_> = records
+        .iter()
+        .map(|record| parse(record, schema.fields()).expect("Failed to parse record."))
+        .collect();
+    arrow::compute::concat_batches(schema, &input_batches)
 }

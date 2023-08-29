@@ -72,6 +72,10 @@ struct Args {
     /// The compression used for the Parquet.
     #[clap(short, long, value_enum, value_parser, default_value_t = OptCompression::Snappy)]
     compression: OptCompression,
+
+    /// The batch size of Parquet records.
+    #[clap(long, value_enum, value_parser, default_value = "1024")]
+    batch_size: usize,
 }
 
 fn main() -> Result<(), Error> {
@@ -95,20 +99,23 @@ fn main() -> Result<(), Error> {
 
     let mut writer = ArrowWriter::try_new(io::stdout(), schema.clone(), Some(props))?;
 
+    let batch_size = args.batch_size;
     if args.gzipped {
         let gzip_stream = GzipReader::new(stream)?;
-        let mut reader = Reader::new(BufReader::new(gzip_stream), schema.clone());
+        let mut reader = Reader::new(BufReader::new(gzip_stream), schema.clone(), batch_size);
 
         for batch in reader.iter_reader() {
             let batch = batch.expect("Failed to read batch from WARC");
             writer.write(&batch)?;
+            writer.flush()?;
         }
     } else {
-        let mut reader = Reader::new(stream, schema.clone());
+        let mut reader = Reader::new(stream, schema.clone(), batch_size);
 
         for batch in reader.iter_reader() {
             let batch = batch.expect("Failed to read batch from WARC");
             writer.write(&batch)?;
+            writer.flush()?;
         }
     }
 
