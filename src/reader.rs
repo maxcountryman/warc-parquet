@@ -28,7 +28,11 @@ impl<R: BufRead> WarcToArrowReaderBuilder<R> {
     /// # Example
     ///
     /// ```rust
-    /// let input = BufReader::new(Cursor::new(""));
+    /// use std::io::{BufReader, Cursor};
+    ///
+    /// use warc_parquet::WarcToArrowReaderBuilder;
+    ///
+    /// let input = BufReader::new(Cursor::new(b""));
     /// let reader_builder = WarcToArrowReaderBuilder::new(input).with_batch_size(1);
     /// let reader = reader_builder.build();
     /// ```

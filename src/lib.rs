@@ -20,7 +20,7 @@
 //! use arrow::array::{BinaryArray, StringArray};
 //! use parquet::arrow::{arrow_reader::ParquetRecordBatchReaderBuilder, ArrowWriter};
 //! use tempfile::tempfile;
-//! use warc_parquet::{Compression, WarcToArrowReader, WARC_1_0_SCHEMA};
+//! use warc_parquet::{parquet::basic::Compression, WarcToArrowReader, WARC_1_0_SCHEMA};
 //!
 //! # fn main() {
 //! let warc_content = b"\
@@ -79,7 +79,7 @@
 
 pub use arrow;
 pub use parquet;
-pub use reader::WarcToArrowReader;
+pub use reader::{WarcToArrowReader, WarcToArrowReaderBuilder};
 pub use schema::WARC_1_0_SCHEMA;
 
 mod reader;
