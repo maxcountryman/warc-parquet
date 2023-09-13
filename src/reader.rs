@@ -1,14 +1,16 @@
 use std::{io::BufRead, sync::Arc};
 
-use arrow::{
-    array::{ArrayRef, BinaryArray, StringArray, TimestampMillisecondArray, UInt32Array},
-    datatypes::SchemaRef,
-    record_batch::RecordBatch,
-};
 use chrono::NaiveDateTime;
 use warc::{BufferedBody, Record, StreamingIter, WarcHeader, WarcReader};
 
-use crate::schema::WARC_1_0_SCHEMA;
+use crate::{
+    arrow::{
+        array::{ArrayRef, BinaryArray, StringArray, TimestampMillisecondArray, UInt32Array},
+        datatypes::SchemaRef,
+        record_batch::RecordBatch,
+    },
+    schema::WARC_1_0_SCHEMA,
+};
 
 type ReaderResult<T> = Result<T, Box<dyn std::error::Error>>;
 

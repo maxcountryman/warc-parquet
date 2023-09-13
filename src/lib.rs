@@ -77,7 +77,8 @@
 //! # }
 //! ```
 
-pub use parquet::basic::Compression;
+pub use arrow;
+pub use parquet;
 pub use reader::WarcToArrowReader;
 pub use schema::WARC_1_0_SCHEMA;
 
