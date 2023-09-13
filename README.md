@@ -27,7 +27,7 @@ To use the crate in your project, add the following to your `Cargo.toml` file:
 
 ```
 [dependencies]
-warc-parquet = "0.5.0"
+warc-parquet = "0.6.0"
 ```
 
 ## 🤸 Usage
