@@ -2,99 +2,126 @@ use std::{io::BufRead, sync::Arc};
 
 use arrow::{
     array::{ArrayRef, BinaryArray, StringArray, TimestampMillisecondArray, UInt32Array},
-    datatypes::{DataType, Field, Fields, Schema, SchemaRef, TimeUnit},
-    error::Result,
+    datatypes::SchemaRef,
     record_batch::RecordBatch,
 };
 use chrono::NaiveDateTime;
-use lazy_static::lazy_static;
 use warc::{BufferedBody, Record, StreamingIter, WarcHeader, WarcReader};
 
-lazy_static! {
-    /// The WARC Format 1.0 schema.
-    ///
-    /// This specification is drawn from the standard
-    /// [document](https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/).
-    pub static ref DEFAULT_SCHEMA: SchemaRef =
-        Arc::new(Schema::new(vec![
-            // Mandatory fields.
-            Field::new("id", DataType::Utf8, false),
-            Field::new("content_length", DataType::UInt32, false),
-            Field::new(
-                "date",
-                DataType::Timestamp(TimeUnit::Millisecond, None),
-                false,
-            ),
-            Field::new("type", DataType::Utf8, false),
+use crate::schema::WARC_1_0_SCHEMA;
 
-            // Optional fields.
-            Field::new("content_type", DataType::Utf8, true),
-            Field::new("concurrent_to", DataType::Utf8, true),
-            Field::new("block_digest", DataType::Utf8, true),
-            Field::new("payload_digest", DataType::Utf8, true),
-            Field::new("ip_address", DataType::Utf8, true),
-            Field::new("refers_to", DataType::Utf8, true),
-            Field::new("target_uri", DataType::Utf8, true),
-            Field::new("truncated", DataType::Utf8, true),
-            Field::new("warc_info_id", DataType::Utf8, true),
-            Field::new("filename", DataType::Utf8, true),
-            Field::new("profile", DataType::Utf8, true),
-            Field::new("identified_payload_type", DataType::Utf8, true),
-            Field::new("segment_number", DataType::UInt32, true),
-            Field::new("segment_origin_id", DataType::Utf8, true),
-            Field::new("segment_total_length", DataType::UInt32, true),
-            Field::new("body", DataType::Binary, true),
-        ]));
+type ReaderResult<T> = Result<T, Box<dyn std::error::Error>>;
+
+pub struct WarcToArrowReaderBuilder<R: BufRead> {
+    reader: R,
+    schema: SchemaRef,
+    batch_size: usize,
 }
 
-/// A reader which transforms the given `BufRead` source into an Arrow
-/// representation.
-pub struct Reader<R: BufRead> {
+impl<R: BufRead> WarcToArrowReaderBuilder<R> {
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader,
+            schema: WARC_1_0_SCHEMA.clone(),
+            batch_size: 8192,
+        }
+    }
+
+    pub fn with_schema(mut self, schema: SchemaRef) -> Self {
+        self.schema = schema;
+        self
+    }
+
+    pub fn with_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size = batch_size;
+        self
+    }
+
+    pub fn build(self) -> WarcToArrowReader<R> {
+        let reader = WarcReader::new(self.reader);
+        WarcToArrowReader {
+            reader,
+            schema: self.schema,
+            batch_size: self.batch_size,
+        }
+    }
+}
+
+/// A wrapper around a `WarcReader` which provides a translation from a WARC
+/// source to an Arrow representation. The Arrow representation can then be used
+/// for different tasks, including persistence via a format such as Parquet.
+///
+/// See the `warc-parquet` utility for a command line utility that takes WARC
+/// and produces Parquet leveraging this crate.
+///
+/// # Example
+///
+/// ```rust
+/// use std::{
+///     io::{BufReader, Cursor},
+///     sync::Arc,
+/// };
+///
+/// use arrow::array::StringArray;
+/// use warc_parquet::WarcToArrowReader;
+///
+/// # fn main() {
+/// let warc_content = b"\
+///     WARC/1.0\r\n\
+///     Warc-Type: response\r\n\
+///     Content-Length: 13\r\n\
+///     WARC-Record-Id: <urn:test:basic-record:record-0>\r\n\
+///     WARC-Date: 2020-07-08T02:52:55Z\r\n\
+///     \r\n\
+///     Hello, world!\r\n\
+///     \r\n\
+/// ";
+///
+/// let input = BufReader::new(Cursor::new(warc_content));
+/// let mut reader = WarcToArrowReader::builder(input)
+///     .with_batch_size(1024)
+///     .build();
+/// let mut iter_reader = reader.iter_reader();
+///
+/// let record_batch = iter_reader.next().unwrap().unwrap();
+/// assert_eq!(
+///     record_batch
+///         .column_by_name("id")
+///         .unwrap()
+///         .as_any()
+///         .downcast_ref::<StringArray>()
+///         .unwrap(),
+///     &StringArray::from(vec!["<urn:test:basic-record:record-0>"])
+/// );
+/// # }
+/// ```
+pub struct WarcToArrowReader<R: BufRead> {
     schema: SchemaRef,
     reader: WarcReader<R>,
     batch_size: usize,
 }
 
-impl<R: BufRead> Reader<R> {
-    /// Creates a new `Reader<R>` with the provided WARC source reader and
-    /// schema.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::io::{BufReader, Cursor};
-    ///
-    /// use warc_parquet::{Reader, DEFAULT_SCHEMA};
-    ///
-    /// # fn main() {
-    /// let file = BufReader::new(Cursor::new(b""));
-    /// let schema = DEFAULT_SCHEMA.clone();
-    /// let mut reader = Reader::new(file, schema);
-    /// for record in reader.iter_reader() {
-    ///     dbg!(record); // There won't be anything, since we provided an empty buffer.
-    /// }
-    /// # }
-    /// ```
-    pub fn new(reader: R, schema: SchemaRef, batch_size: usize) -> Self {
-        Self {
-            schema,
-            reader: WarcReader::new(reader),
-            batch_size,
-        }
+impl<R: BufRead> WarcToArrowReader<R> {
+    /// Provides a builder for constructing a new `WarcToArrowReader` from a
+    /// WARC source.
+    pub fn builder(reader: R) -> WarcToArrowReaderBuilder<R> {
+        WarcToArrowReaderBuilder::new(reader)
     }
 
-    /// Returns an interface which can be used to iterate through the records.
+    /// Returns an interface which can be used to iterate through record
+    /// batches.
     pub fn iter_reader(&mut self) -> IterReader<'_, R> {
         IterReader::new(self.reader.stream_records(), &self.schema, self.batch_size)
     }
 }
 
 /// An iterator type for the underlying data. This consumes the streaming API of
-/// the [`WarcReader`].
+/// the [`WarcReader`], producing record batches of up to `batch_size`.
 pub struct IterReader<'r, R> {
     schema: &'r SchemaRef,
     stream_iter: StreamingIter<'r, R>,
     batch_size: usize,
+    stream_ended: bool,
 }
 
 impl<'r, R: BufRead> IterReader<'r, R> {
@@ -107,151 +134,277 @@ impl<'r, R: BufRead> IterReader<'r, R> {
             schema,
             stream_iter,
             batch_size,
+            stream_ended: false,
         }
     }
 }
 
 impl<R: BufRead> Iterator for IterReader<'_, R> {
-    type Item = Result<RecordBatch>;
+    type Item = ReaderResult<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.stream_iter.next_item().map(|record| {
-            parse(
-                &record.unwrap().into_buffered().unwrap(),
-                &self.schema.fields,
-            )
-        })
+        let mut records = Vec::with_capacity(self.batch_size);
+        while records.len() < self.batch_size && !self.stream_ended {
+            match self.stream_iter.next_item() {
+                Some(Ok(record)) => {
+                    records.push(record.into_buffered().expect("Failed to buffer record."));
+                }
+
+                Some(Err(err)) => {
+                    return Some(Err(err.into()));
+                }
+
+                None => {
+                    self.stream_ended = true;
+                    break;
+                }
+            }
+        }
+
+        if !records.is_empty() {
+            Some(build_record_batch(self.schema, &records))
+        } else {
+            None
+        }
     }
 }
 
-fn parse(record: &Record<BufferedBody>, fields: &Fields) -> Result<RecordBatch> {
-    let arrays: Result<Vec<ArrayRef>> = fields
-        .iter()
-        .map(|field| {
-            Ok(match field.name().as_str() {
-                "id" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::RecordID)
-                    .map(|s| s.to_string())
-                    .expect("WARC-Record-ID header is mandatory.")]))
-                    as ArrayRef,
+fn build_record_batch(
+    schema: &SchemaRef,
+    records: &[Record<BufferedBody>],
+) -> ReaderResult<RecordBatch> {
+    let mut columns = Vec::with_capacity(records.len());
 
-                "content_length" => Arc::new(UInt32Array::from(vec![record
-                    .header(WarcHeader::ContentLength)
-                    .map(|s| s.to_string().parse::<u32>().unwrap())
-                    .expect("Content-Length header is mandatory.")]))
-                    as ArrayRef,
-
-                "date" => Arc::new(TimestampMillisecondArray::from(vec![record
-                    .header(WarcHeader::Date)
-                    .map(|s| {
-                        NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%SZ")
-                            .unwrap()
-                            .timestamp_millis()
+    for field in schema.fields() {
+        let field_name = field.name();
+        let field_array: ArrayRef = match field_name.as_str() {
+            "id" => {
+                let id_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::RecordID)
+                            .map(|h| h.to_string())
+                            .expect("WARC-Record-ID header is mandatory.")
                     })
-                    .expect("WARC-Date header is mandatory.")]))
-                    as ArrayRef,
+                    .collect();
+                Arc::new(StringArray::from(id_values))
+            }
 
-                "type" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::WarcType)
-                    .map(|s| s.to_string())
-                    .expect("WARC-Type header is mandatory.")]))
-                    as ArrayRef,
+            "content_length" => {
+                let content_length_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::ContentLength)
+                            .map(|h| h.to_string().parse::<u32>().unwrap())
+                            .expect("Content-Length header is mandatory.")
+                    })
+                    .collect();
+                Arc::new(UInt32Array::from(content_length_values))
+            }
 
-                "content_type" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::ContentType)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "date" => {
+                let date_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::Date)
+                            .map(|h| {
+                                NaiveDateTime::parse_from_str(&h, "%Y-%m-%dT%H:%M:%SZ")
+                                    .unwrap()
+                                    .timestamp_millis()
+                            })
+                            .expect("WARC-Date header is mandatory.")
+                    })
+                    .collect();
+                Arc::new(TimestampMillisecondArray::from(date_values))
+            }
 
-                "concurrent_to" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::ConcurrentTo)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "type" => {
+                let type_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::WarcType)
+                            .map(|h| h.to_string())
+                            .expect("WARC-Type header is mandatory.")
+                    })
+                    .collect();
+                Arc::new(StringArray::from(type_values))
+            }
 
-                "block_digest" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::BlockDigest)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "content_type" => {
+                let content_type_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::ContentType)
+                            .map(|h| h.to_string())
+                    })
+                    .collect();
+                Arc::new(StringArray::from(content_type_values))
+            }
 
-                "payload_digest" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::PayloadDigest)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "concurrent_to" => {
+                let concurrent_to_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::ConcurrentTo)
+                            .map(|h| h.to_string())
+                    })
+                    .collect();
+                Arc::new(StringArray::from(concurrent_to_values))
+            }
 
-                "ip_address" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::IPAddress)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "block_digest" => {
+                let block_digest_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::BlockDigest)
+                            .map(|h| h.to_string())
+                    })
+                    .collect();
+                Arc::new(StringArray::from(block_digest_values))
+            }
 
-                "refers_to" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::RefersTo)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "payload_digest" => {
+                let payload_digest_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::PayloadDigest)
+                            .map(|h| h.to_string())
+                    })
+                    .collect();
+                Arc::new(StringArray::from(payload_digest_values))
+            }
 
-                "target_uri" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::TargetURI)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "ip_address" => {
+                let ip_address_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::IPAddress).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(ip_address_values))
+            }
 
-                "truncated" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::Truncated)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "refers_to" => {
+                let refers_to_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::RefersTo).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(refers_to_values))
+            }
 
-                "warc_info_id" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::WarcInfoID)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "target_uri" => {
+                let target_uri_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::TargetURI).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(target_uri_values))
+            }
 
-                "filename" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::Filename)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "truncated" => {
+                let truncated_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::Truncated).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(truncated_values))
+            }
 
-                "profile" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::Profile)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "warc_info_id" => {
+                let warc_info_id_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::WarcInfoID).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(warc_info_id_values))
+            }
 
-                "identified_payload_type" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::IdentifiedPayloadType)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "filename" => {
+                let filename_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::Filename).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(filename_values))
+            }
 
-                "segment_number" => Arc::new(UInt32Array::from(vec![record
-                    .header(WarcHeader::SegmentNumber)
-                    .map(|s| {
-                        s.to_string()
-                            .parse::<u32>()
-                            .expect("Malformed segment number.")
-                    })])) as ArrayRef,
+            "profile" => {
+                let profile_values: Vec<_> = records
+                    .iter()
+                    .map(|record| record.header(WarcHeader::Profile).map(|h| h.to_string()))
+                    .collect();
+                Arc::new(StringArray::from(profile_values))
+            }
 
-                "segment_origin_id" => Arc::new(StringArray::from(vec![record
-                    .header(WarcHeader::SegmentOriginID)
-                    .map(|s| s.to_string())
-                    .as_deref()])) as ArrayRef,
+            "identified_payload_type" => {
+                let identified_payload_type_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::IdentifiedPayloadType)
+                            .map(|h| h.to_string())
+                    })
+                    .collect();
 
-                "segment_total_length" => Arc::new(UInt32Array::from(vec![record
-                    .header(WarcHeader::SegmentNumber)
-                    .map(|s| {
-                        s.to_string()
-                            .parse::<u32>()
-                            .expect("Malformed segment total length.")
-                    })])) as ArrayRef,
+                Arc::new(StringArray::from(identified_payload_type_values))
+            }
 
-                "body" => Arc::new(BinaryArray::from(vec![record.body()])) as ArrayRef,
+            "segment_number" => {
+                let segment_number_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record.header(WarcHeader::SegmentNumber).map(|h| {
+                            h.to_string()
+                                .parse::<u32>()
+                                .expect("Malformed segment number.")
+                        })
+                    })
+                    .collect();
 
-                _ => unimplemented!(),
-            })
-        })
-        .collect();
+                Arc::new(UInt32Array::from(segment_number_values))
+            }
 
-    arrays.and_then(|arr| RecordBatch::try_new(Arc::new(Schema::new(fields.to_vec())), arr))
-}
+            "segment_origin_id" => {
+                let segment_origin_id_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record
+                            .header(WarcHeader::SegmentOriginID)
+                            .map(|h| h.to_string())
+                    })
+                    .collect();
 
-fn parse_batch(records: &[Record<BufferedBody>], schema: &SchemaRef) -> Result<RecordBatch> {
-    let input_batches: Vec<_> = records
-        .iter()
-        .map(|record| parse(record, schema.fields()).expect("Failed to parse record."))
-        .collect();
-    arrow::compute::concat_batches(schema, &input_batches)
+                Arc::new(StringArray::from(segment_origin_id_values))
+            }
+
+            "segment_total_length" => {
+                let segment_total_length_values: Vec<_> = records
+                    .iter()
+                    .map(|record| {
+                        record.header(WarcHeader::SegmentTotalLength).map(|h| {
+                            h.to_string()
+                                .parse::<u32>()
+                                .expect("Malformed segment total length.")
+                        })
+                    })
+                    .collect();
+
+                Arc::new(UInt32Array::from(segment_total_length_values))
+            }
+
+            "body" => {
+                let body_values: Vec<_> = records.iter().map(|record| record.body()).collect();
+
+                Arc::new(BinaryArray::from(body_values))
+            }
+
+            _ => unimplemented!(),
+        };
+
+        columns.push(field_array);
+    }
+
+    Ok(RecordBatch::try_new(schema.clone(), columns)?)
 }
