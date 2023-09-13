@@ -1,16 +1,26 @@
 #![deny(missing_docs)]
-//! A small library providing a reader which translates a WARC source to Arrow.
+//! A crate providing a reader from Web ARChive (WARC) to Apache Arrow format.
 //!
-//! This implementation is written for the WARC Format 1.0 specification.
+//! Users will create a [`WarcToArrowReader`] over a WARC source. This source is
+//! expected to be `BufRead`. Generally a new reader will be built via the
+//! [`builder`](WarcToArrowReader::builder) method. With a reader constructed,
+//! consumers can iterate over records by calling
+//! [`iter_reader`](WarcToArrowReader::iter_reader).
 //!
-//! Users will consume the [`WarcToArrowReader`] struct to create a new reader
-//! of a WARC source. The reader expects some `BufRead` source which it will
-//! internally wrap with a [`WarcReader`](warc::WarcReader). Once
-//! created, the reader can be iterated in order to retrieve the Arrow
-//! representation of the WARC records.
+//! Internally, the reader uses [`WarcReader`](warc::WarcReader) to read from
+//! the provided source. More specifically the streaming interface provided by
+//! `WarcReader` is used. This allows the reader to consume very large or
+//! indefinite streams. The reader also provides a facility for reading the WARC
+//! records into batches of a given `batch_size` (this is useful for forming row
+//! groups, e.g. with Parquet). These batches become
+//! [`RecordBatch`](arrow::record_batch::RecordBatch).
 //!
-//! The `warc-parquet` command line utility leverages this crate to provide
-//! WARC-to-Parquet translation.
+//! Once translated to Arrow, consumers may operate on the output however they
+//! like. For use cases involving Parquet, the `warc-parquet` command line
+//! utility is provided.
+//!
+//! Currently this crate provides a schema for WARC Format 1.0 as
+//! [`WARC_1_0_SCHEMA`](static@WARC_1_0_SCHEMA).
 //!
 //! # Example
 //!
