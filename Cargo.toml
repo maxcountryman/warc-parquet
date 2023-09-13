@@ -4,17 +4,20 @@ version = "0.5.0"
 edition = "2021"
 description = "A utility for converting WARC to Parquet."
 license = "MIT"
-keywords = ["warc", "parquet"]
+keywords = ["warc", "parquet", "arrow"]
 repository = "https://github.com/maxcountryman/warc-parquet"
 
 [dependencies]
 arrow = "46.0.0"
 chrono = "0.4.19"
-parquet = "46.0.0"
-libflate = "2.0.0"
 lazy_static = "1.4.0"
+libflate = "2.0.0"
+parquet = "46.0.0"
 warc = "0.3.1"
 
 [dependencies.clap]
 version = "4.4.0"
 features = ["derive"]
+
+[dev-dependencies]
+tempfile = "3.8.0"

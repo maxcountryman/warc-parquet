@@ -1,17 +1,15 @@
 use std::{
     fs::OpenOptions,
-    io::{self, BufRead, BufReader, Error},
+    io::{self, BufRead, BufReader, Write},
     path::PathBuf,
 };
 
 use clap::{Parser, ValueEnum};
 use libflate::gzip::MultiDecoder as GzipReader;
-use parquet::{
-    arrow::ArrowWriter,
-    basic::{BrotliLevel, Compression, GzipLevel, ZstdLevel},
-    file::properties::WriterProperties,
+use warc_parquet::{
+    parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties},
+    WarcToArrowReader, WARC_1_0_SCHEMA,
 };
-use warc_parquet::{Reader, DEFAULT_SCHEMA};
 
 const MB: usize = 1_048_576;
 const STDIN_MARKER: &str = "-";
@@ -32,11 +30,11 @@ impl From<OptCompression> for Compression {
         match opt_compression {
             OptCompression::Uncompressed => Compression::UNCOMPRESSED,
             OptCompression::Snappy => Compression::SNAPPY,
-            OptCompression::Gzip => Compression::GZIP(GzipLevel::default()),
+            OptCompression::Gzip => Compression::GZIP(Default::default()),
             OptCompression::Lzo => Compression::LZO,
-            OptCompression::Brotli => Compression::BROTLI(BrotliLevel::default()),
+            OptCompression::Brotli => Compression::BROTLI(Default::default()),
             OptCompression::Lz4 => Compression::LZ4,
-            OptCompression::Zstd => Compression::ZSTD(ZstdLevel::default()),
+            OptCompression::Zstd => Compression::ZSTD(Default::default()),
         }
     }
 }
@@ -48,15 +46,15 @@ impl From<OptCompression> for Compression {
 ///
 /// With a provided path:
 ///
-///     $ warc-parquet example.warc.gz --gzipped > example.snappy.parquet
+///     $ warc-parquet example.warc.gz --gzipped > example.zstd.parquet
 ///
 /// Alternatively using STDIN:
 ///
-///     $ cat example.warc.gz | gzip -d | warc-parquet > example.snappy.parquet
+///     $ cat example.warc.gz | gzip -d | warc-parquet > example.zstd.parquet
 ///
 /// Various compression formats for the Parquet output are also supported:
 ///
-///     $ cat example.warc.gz | warc-parquet --gzipped --compression brotli >
+///     $ cat example.warc.gz | warc-parquet --gzipped --compression gzip >
 /// example.br.parquet
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -70,12 +68,33 @@ struct Args {
     warc_input: PathBuf,
 
     /// The compression used for the Parquet.
-    #[clap(short, long, value_enum, value_parser, default_value_t = OptCompression::Snappy)]
+    #[clap(short, long, value_enum, value_parser, default_value_t = OptCompression::Zstd)]
     compression: OptCompression,
+
+    /// Sets maximum number of rows in a row group.
+    #[clap(long, value_enum, value_parser, default_value = "4096")]
+    max_row_group_size: usize,
+
+    /// Sets the maximum number of records to read from the WARC input at a
+    /// time.
+    #[clap(long, value_enum, value_parser, default_value = "4096")]
+    batch_size: usize,
 }
 
-fn main() -> Result<(), Error> {
+fn write_row_groups<W: Write + Send, R: BufRead>(
+    writer: &mut ArrowWriter<W>,
+    reader: &mut WarcToArrowReader<R>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for record_batch in reader.iter_reader() {
+        writer.write(&record_batch?)?;
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+
+    let schema = WARC_1_0_SCHEMA.clone();
 
     let stream: Box<dyn BufRead> = if args.warc_input == PathBuf::from(STDIN_MARKER) {
         Box::new(BufReader::with_capacity(MB, io::stdin()))
@@ -86,30 +105,27 @@ fn main() -> Result<(), Error> {
         ))
     };
 
-    let schema = DEFAULT_SCHEMA.clone();
-
-    let props = WriterProperties::builder()
-        .set_compression(args.compression.into())
+    let writer_props = WriterProperties::builder()
         .set_created_by(String::from("warc-parquet"))
+        .set_compression(args.compression.into())
+        .set_max_row_group_size(args.max_row_group_size)
         .build();
+    let mut writer = ArrowWriter::try_new(io::stdout(), schema.clone(), Some(writer_props))?;
 
-    let mut writer = ArrowWriter::try_new(io::stdout(), schema.clone(), Some(props))?;
-
+    let batch_size = args.batch_size;
     if args.gzipped {
-        let gzip_stream = GzipReader::new(stream)?;
-        let mut reader = Reader::new(BufReader::new(gzip_stream), schema.clone());
-
-        for batch in reader.iter_reader() {
-            let batch = batch.expect("Failed to read batch from WARC");
-            writer.write(&batch)?;
-        }
+        let gzip_stream = BufReader::new(GzipReader::new(stream)?);
+        let mut reader = WarcToArrowReader::builder(gzip_stream)
+            .with_schema(schema)
+            .with_batch_size(batch_size)
+            .build();
+        write_row_groups(&mut writer, &mut reader)?;
     } else {
-        let mut reader = Reader::new(stream, schema.clone());
-
-        for batch in reader.iter_reader() {
-            let batch = batch.expect("Failed to read batch from WARC");
-            writer.write(&batch)?;
-        }
+        let mut reader = WarcToArrowReader::builder(stream)
+            .with_schema(schema)
+            .with_batch_size(batch_size)
+            .build();
+        write_row_groups(&mut writer, &mut reader)?;
     }
 
     writer.close()?;

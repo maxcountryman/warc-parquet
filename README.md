@@ -38,26 +38,26 @@ Once installed, the `warc-parquet` utility can be used to transform WARC into Pa
 
 ```sh
 $ wget --warc-file example 'https://example.com'
-$ cat example.warc.gz | warc-parquet --gzipped > example.snappy.parquet
+$ cat example.warc.gz | warc-parquet --gzipped > example.zstd.parquet
 ```
 
 `warc-parquet` is meant to fit organically into the UNIX ecosystem. As such processing multiple WARCs at once is straightforward:
 
 ```sh
 $ wget --warc-file github 'https://github.com'
-$ cat example.warc.gz github.warc.gz | warc-parquet --gzipped > combined.snappy.parquet
+$ cat example.warc.gz github.warc.gz | warc-parquet --gzipped > combined.zstd.parquet
 ```
 
 It's also simple to preprocess via standard UNIX piping:
 
 ```sh
-$ cat example.warc.gz | gzip -d | warc-parquet > example.snappy.parquet
+$ cat example.warc.gz | gzip -d | warc-parquet > example.zstd.parquet
 ```
 
 Various compression options, including the option to forego compression altogether, are also available:
 
 ```sh
-$ cat example.warc.gz | warc-parquet --gzipped --compression brotli > example.brotli.parquet
+$ cat example.warc.gz | warc-parquet --gzipped --compression gzip > example.gz.parquet
 ```
 
 > 💡 `warc-parquet --help` displays complete options and usage information.
@@ -78,7 +78,7 @@ Enter ".help" for usage hints.
 Connected to a transient in-memory database.
 Use ".open FILENAME" to reopen on a persistent database.
 
-D select type, id from 'example.snappy.parquet';
+D select type, id from 'example.zstd.parquet';
 ┌──────────┬─────────────────────────────────────────────────┐
 │   type   │                       id                        │
 ├──────────┼─────────────────────────────────────────────────┤
@@ -90,7 +90,7 @@ D select type, id from 'example.snappy.parquet';
 │ resource │ <urn:uuid:6B6D6ADD-52FF-4760-AA00-FB9E739CABBE> │
 └──────────┴─────────────────────────────────────────────────┘
 
-D describe select * from 'example.snappy.parquet';
+D describe select * from 'example.zstd.parquet';
 ┌─────────────────────────┬─────────────┬──────┬─────┬─────────┬───────┐
 │       column_name       │ column_type │ null │ key │ default │ extra │
 ├─────────────────────────┼─────────────┼──────┼─────┼─────────┼───────┤
