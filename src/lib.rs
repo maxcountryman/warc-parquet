@@ -3,9 +3,9 @@
 //!
 //! This implementation is written for the WARC Format 1.0 specification.
 //!
-//! Users will consume the [`Reader`] struct to create a new reader of a WARC
-//! source. The reader expects some `BufRead` source which it will internally
-//! wrap with a [`WarcReader`](warc::WarcReader). Once
+//! Users will consume the [`WarcToArrowReader`] struct to create a new reader
+//! of a WARC source. The reader expects some `BufRead` source which it will
+//! internally wrap with a [`WarcReader`](warc::WarcReader). Once
 //! created, the reader can be iterated in order to retrieve the Arrow
 //! representation of the WARC records.
 //!

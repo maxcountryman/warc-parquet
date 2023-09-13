@@ -12,6 +12,8 @@ use crate::schema::WARC_1_0_SCHEMA;
 
 type ReaderResult<T> = Result<T, Box<dyn std::error::Error>>;
 
+/// A builder used to constract [`WarcToArrowReader`] for a given reader of
+/// WARC.
 pub struct WarcToArrowReaderBuilder<R: BufRead> {
     reader: R,
     schema: SchemaRef,
@@ -19,6 +21,15 @@ pub struct WarcToArrowReaderBuilder<R: BufRead> {
 }
 
 impl<R: BufRead> WarcToArrowReaderBuilder<R> {
+    /// Create a new WarcToArrowReaderBuilder.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let input = BufReader::new(Cursor::new(""));
+    /// let reader_builder = WarcToArrowReaderBuilder::new(input).with_batch_size(1);
+    /// let reader = reader_builder.build();
+    /// ```
     pub fn new(reader: R) -> Self {
         Self {
             reader,
@@ -27,16 +38,19 @@ impl<R: BufRead> WarcToArrowReaderBuilder<R> {
         }
     }
 
+    /// Sets the schema for the reader.
     pub fn with_schema(mut self, schema: SchemaRef) -> Self {
         self.schema = schema;
         self
     }
 
+    /// Sets the batch size for the reader.
     pub fn with_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size = batch_size;
         self
     }
 
+    /// Build a [`WarcToArrowReader`].
     pub fn build(self) -> WarcToArrowReader<R> {
         let reader = WarcReader::new(self.reader);
         WarcToArrowReader {
@@ -47,12 +61,10 @@ impl<R: BufRead> WarcToArrowReaderBuilder<R> {
     }
 }
 
-/// A wrapper around a `WarcReader` which provides a translation from a WARC
-/// source to an Arrow representation. The Arrow representation can then be used
-/// for different tasks, including persistence via a format such as Parquet.
-///
-/// See the `warc-parquet` utility for a command line utility that takes WARC
-/// and produces Parquet leveraging this crate.
+/// A wrapper around a [`WarcReader`](warc::WarcReader) which provides a
+/// translation from a WARC source to an Arrow representation. The Arrow
+/// representation can then be used for different tasks, including persistence
+/// via a format such as Parquet.
 ///
 /// # Example
 ///
