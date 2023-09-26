@@ -1,6 +1,6 @@
 use std::{io::BufRead, sync::Arc};
 
-use chrono::NaiveDateTime;
+use time::{format_description::well_known::Iso8601, OffsetDateTime};
 use warc::{BufferedBody, Record, StreamingIter, WarcHeader, WarcReader};
 
 use crate::{
@@ -226,12 +226,13 @@ fn build_record_batch(
                 let date_values: Vec<_> = records
                     .iter()
                     .map(|record| {
+                        // "%Y-%m-%dT%H:%M:%SZ"
                         record
                             .header(WarcHeader::Date)
                             .map(|h| {
-                                NaiveDateTime::parse_from_str(&h, "%Y-%m-%dT%H:%M:%SZ")
+                                OffsetDateTime::parse(&h, &Iso8601::DEFAULT)
                                     .unwrap()
-                                    .timestamp_millis()
+                                    .millisecond() as i64
                             })
                             .expect("WARC-Date header is mandatory.")
                     })
