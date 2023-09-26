@@ -86,6 +86,9 @@
 //! );
 //! # }
 //! ```
+#![warn(clippy::all, nonstandard_style, future_incompatible)]
+#![deny(missing_docs)]
+#![forbid(unsafe_code)]
 
 pub use arrow;
 pub use parquet;
