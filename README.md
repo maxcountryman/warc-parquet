@@ -1,18 +1,21 @@
 <h1 align="center">
-warc-parquet
+    warc-parquet
 </h1>
 
 <p align="center">
-🗄️  A utility for converting <a href="https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/">WARC</a> to Parquet.
+    🗄️  A utility for converting <a href="https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.0/">WARC</a> to Parquet.
 </p>
 
 <div align="center">
-<a href="https://crates.io/crates/warc-parquet">
-<img src="https://img.shields.io/crates/v/warc-parquet.svg" />
-</a>
-<a href="https://docs.rs/warc-parquet">
-<img src="https://docs.rs/warc-parquet/badge.svg" />
-</a>
+    <a href="https://crates.io/crates/warc-parquet">
+        <img src="https://img.shields.io/crates/v/warc-parquet.svg" />
+    </a>
+    <a href="https://docs.rs/warc-parquet">
+        <img src="https://docs.rs/warc-parquet/badge.svg" />
+    </a>
+    <a href="https://github.com/maxcountryman/warc-parquet/actions/workflows/rust.yml">
+    <img src="https://github.com/maxcountryman/warc-parquet/actions/workflows/rust.yml/badge.svg" />
+    </a>
 </div>
 
 ## 📦 Install
