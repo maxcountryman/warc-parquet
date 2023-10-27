@@ -20,4 +20,4 @@ version = "4.4.6"
 features = ["derive"]
 
 [dev-dependencies]
-tempfile = "3.8.0"
+tempfile = "3.8.1"
