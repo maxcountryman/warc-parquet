@@ -16,7 +16,7 @@ time = { version = "0.3.30", features = ["parsing"] }
 warc = "0.3.1"
 
 [dependencies.clap]
-version = "4.4.6"
+version = "4.4.14"
 features = ["derive"]
 
 [dev-dependencies]
