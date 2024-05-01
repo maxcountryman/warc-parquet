@@ -10,7 +10,7 @@ repository = "https://github.com/maxcountryman/warc-parquet"
 [dependencies]
 arrow = "47.0.0"
 lazy_static = "1.4.0"
-libflate = "2.0.0"
+libflate = "2.1.0"
 parquet = "47.0.0"
 time = { version = "0.3.34", features = ["parsing"] }
 warc = "0.3.2"
