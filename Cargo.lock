@@ -1415,9 +1415,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "warc"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8c0db9f11968e404026e564b39aef0ce1df009f5f6738ddf4c6c1eaa8f120ef"
+checksum = "1128c5c5645c792fd1ff140a0adae1dbccd35798a7a256d7205b3e5124980ef2"
 dependencies = [
  "chrono",
  "libflate 1.2.0",
