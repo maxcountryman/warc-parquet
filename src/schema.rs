@@ -36,6 +36,6 @@ lazy_static! {
             Field::new("segment_number", DataType::UInt32, true),
             Field::new("segment_origin_id", DataType::Utf8, true),
             Field::new("segment_total_length", DataType::UInt32, true),
-            Field::new("body", DataType::Binary, true),
+            Field::new("body", DataType::LargeBinary, true),
         ]));
 }

@@ -27,7 +27,7 @@
 //! ```rust
 //! use std::io::{BufReader, Cursor, Read};
 //!
-//! use arrow::array::{BinaryArray, StringArray};
+//! use arrow::array::{LargeBinaryArray, StringArray};
 //! use parquet::arrow::{arrow_reader::ParquetRecordBatchReaderBuilder, ArrowWriter};
 //! use tempfile::tempfile;
 //! use warc_parquet::{parquet::basic::Compression, WarcToArrowReader, WARC_1_0_SCHEMA};
@@ -80,9 +80,9 @@
 //!         .column_by_name("body")
 //!         .unwrap()
 //!         .as_any()
-//!         .downcast_ref::<BinaryArray>()
+//!         .downcast_ref::<LargeBinaryArray>()
 //!         .unwrap(),
-//!     &BinaryArray::from_vec(vec![b"Hello, world!"])
+//!     &LargeBinaryArray::from_vec(vec![b"Hello, world!"])
 //! );
 //! # }
 //! ```

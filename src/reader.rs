@@ -5,7 +5,7 @@ use warc::{BufferedBody, Record, StreamingIter, WarcHeader, WarcReader};
 
 use crate::{
     arrow::{
-        array::{ArrayRef, BinaryArray, StringArray, TimestampMillisecondArray, UInt32Array},
+        array::{ArrayRef, LargeBinaryArray, StringArray, TimestampMillisecondArray, UInt32Array},
         datatypes::SchemaRef,
         record_batch::RecordBatch,
     },
@@ -416,7 +416,7 @@ fn build_record_batch(
             "body" => {
                 let body_values: Vec<_> = records.iter().map(|record| record.body()).collect();
 
-                Arc::new(BinaryArray::from(body_values))
+                Arc::new(LargeBinaryArray::from(body_values))
             }
 
             _ => unimplemented!(),
